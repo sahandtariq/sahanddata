@@ -1,163 +1,32 @@
-(() => {
-  "use strict";
-
-  const DATA = (typeof PERSON_DATA !== "undefined" && Array.isArray(PERSON_DATA)) ? PERSON_DATA : [];
-  const $ = id => document.getElementById(id);
-  const norm = s => String(s ?? "").trim().toLowerCase()
-    .replace(/ي/g,"ی").replace(/ى/g,"ی").replace(/ك/g,"ک");
-
-  const pageSize = 60;
-  let matches = [];
-  let page = 1;
-
-  function field(r, i){ return String(r?.[i] ?? "").trim(); }
-  function fullName(r){ return [field(r,3),field(r,4),field(r,5)].filter(Boolean).join(" "); }
-  function familyId(r){ return field(r,1); }
-  function birthYear(r){
-    const x = field(r,7);
-    const m = x.match(/(18|19|20)\d{2}/);
-    return m ? Number(m[0]) : null;
-  }
-  function ageOf(r){
-    const y = birthYear(r);
-    if(!y) return null;
-    return new Date().getFullYear() - y;
-  }
-  function matchesAge(r, q){
-    if(!q) return true;
-    const n = Number(q);
-    if(!Number.isFinite(n)) return false;
-    const y = birthYear(r);
-    if(n >= 1800 && n <= new Date().getFullYear()) return y === n;
-    const a = ageOf(r);
-    return a === n;
-  }
-
-  function render(){
-    const box = $("results");
-    box.innerHTML = "";
-    const total = matches.length;
-    $("count").textContent = total ? `${total.toLocaleString()} ئەنجام` : "هیچ ئەنجامێک نییە";
-    if(!total){
-      box.innerHTML = `<div class="empty">هیچ کەسێک بەو زانیارییە نەدۆزرایەوە.</div>`;
-      $("pager").innerHTML = "";
-      return;
-    }
-    const pages = Math.ceil(total / pageSize);
-    page = Math.min(page, pages);
-    const start = (page - 1) * pageSize;
-    const chunk = matches.slice(start, start + pageSize);
-
-    const frag = document.createDocumentFragment();
-    chunk.forEach(r => {
-      const b = birthYear(r), a = ageOf(r);
-      const btn = document.createElement("button");
-      btn.className = "person";
-      btn.type = "button";
-      btn.innerHTML = `
-        <div class="avatar">${escapeHtml(field(r,3).slice(0,1) || "?")}</div>
-        <div class="person-main">
-          <div class="person-name">${escapeHtml(fullName(r) || "بێ ناو")}</div>
-          <div class="person-meta">ژمارەی خێزان: ${escapeHtml(familyId(r))}${b ? ` · ${b}` : ""}${a !== null ? ` · تەمەن ${a}` : ""}</div>
-        </div>
-        <div class="chev">‹</div>`;
-      btn.addEventListener("click", () => openPerson(r));
-      frag.appendChild(btn);
-    });
-    box.appendChild(frag);
-
-    const pager = $("pager");
-    pager.innerHTML = "";
-    if(pages > 1){
-      const from = Math.max(1, page - 2), to = Math.min(pages, page + 2);
-      if(page > 1) addPage("‹", page-1);
-      for(let i=from;i<=to;i++) addPage(String(i), i, i===page);
-      if(page < pages) addPage("›", page+1);
-    }
-    function addPage(label,n,active=false){
-      const b=document.createElement("button"); b.textContent=label; b.className=active?"active":"";
-      b.onclick=()=>{page=n;render();scrollTo({top:$("results").offsetTop-20,behavior:"smooth"});};
-      pager.appendChild(b);
-    }
-  }
-
-  function search(){
-    const n=norm($("name").value), f=norm($("father").value), g=norm($("grandfather").value), a=$("age").value.trim();
-    if(!n&&!f&&!g&&!a){
-      matches=[]; page=1; $("count").textContent="خانەکان پڕ بکە"; render(); return;
-    }
-    const out=[];
-    for(const r of DATA){
-      if(n && !norm(field(r,3)).includes(n)) continue;
-      if(f && !norm(field(r,4)).includes(f)) continue;
-      if(g && !norm(field(r,5)).includes(g)) continue;
-      if(a && !matchesAge(r,a)) continue;
-      out.push(r);
-    }
-    matches=out; page=1; render();
-  }
-
-  function openPerson(r){
-    const fid=familyId(r);
-    const family=[];
-    if(fid){
-      for(const x of DATA) if(familyId(x)===fid) family.push(x);
-    }
-    $("modalContent").innerHTML = `
-      <div class="detail-head">
-        <h2>${escapeHtml(fullName(r)||"بێ ناو")}</h2>
-        <p>ژمارەی خێزان: ${escapeHtml(fid||"—")}</p>
-      </div>
-      <div class="detail-grid">
-        <div class="detail-item"><small>ناو</small><b>${escapeHtml(field(r,3)||"—")}</b></div>
-        <div class="detail-item"><small>باوک</small><b>${escapeHtml(field(r,4)||"—")}</b></div>
-        <div class="detail-item"><small>باپیر</small><b>${escapeHtml(field(r,5)||"—")}</b></div>
-        <div class="detail-item"><small>ساڵی لەدایکبوون</small><b>${escapeHtml(String(birthYear(r)||"—"))}</b></div>
-        <div class="detail-item"><small>تەمەن</small><b>${ageOf(r) ?? "—"}</b></div>
-        <div class="detail-item"><small>ژمارەی خێزان</small><b>${escapeHtml(fid||"—")}</b></div>
-      </div>
-      <h3 class="family-title">هەموو ئەندامانی هەمان خێزان (${family.length})</h3>
-      <div class="family-list">
-        ${family.map(x => `<div class="family-member"><b>${escapeHtml(fullName(x)||"بێ ناو")}</b><span>${escapeHtml(field(x,3))} · باوک: ${escapeHtml(field(x,4))} · باپیر: ${escapeHtml(field(x,5))}${ageOf(x)!==null ? ` · تەمەن: ${ageOf(x)}` : ""}</span></div>`).join("")}
-      </div>`;
-    $("modal").classList.remove("hidden");
-    $("modal").setAttribute("aria-hidden","false");
-  }
-
-  function closeModal(){ $("modal").classList.add("hidden"); $("modal").setAttribute("aria-hidden","true"); }
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-
-  function setTheme(){
-    const saved=localStorage.getItem("personTheme");
-    if(saved==="light") document.documentElement.className="light";
-    else if(saved==="dark") document.documentElement.className="dark";
-    else document.documentElement.className="";
-    $("themeBtn").textContent=document.documentElement.classList.contains("dark")?"☀":"☾";
-  }
-
-  function toggleTheme(){
-    const dark=!document.documentElement.classList.contains("dark");
-    document.documentElement.className=dark?"dark":"light";
-    localStorage.setItem("personTheme",dark?"dark":"light");
-    $("themeBtn").textContent=dark?"☀":"☾";
-  }
-
-  ["name","father","grandfather","age"].forEach(id => $(id).addEventListener("keydown",e=>{if(e.key==="Enter")search();}));
-  ["name","father","grandfather","age"].forEach(id => $(id).addEventListener("input", () => search()));
-  $("searchBtn").onclick=search;
-  $("clearBtn").onclick=()=>{["name","father","grandfather","age"].forEach(id=>$(id).value="");matches=[];page=1;render();};
-  $("closeModal").onclick=closeModal;
-  $("modalBackdrop").onclick=closeModal;
-  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
-
-
-  // File:// compatible: no fetch(), no modules, no server required.
-  // Data is already loaded by the classic script tag above.
-  $("loadStatus").textContent=`${DATA.length.toLocaleString()} تۆمار ئامادەیە`;
-  $("hint").textContent="لەگەڵ هەر پیتێکدا گەڕان بەخۆکار دەکرێت.";
-  $("progressBar").style.width="100%";
-  setTimeout(()=>{
-    $("splash").classList.add("hidden");
-    $("app").classList.remove("hidden");
-  },500);
+(()=>{
+'use strict';
+const DB='PersonSearchDB', VER=1, STORE='people', PAGE=40;
+let db, matches=[], page=1, timer=0, busy=false;
+const $=id=>document.getElementById(id);
+const norm=s=>String(s??'').trim().toLowerCase().replace(/ي/g,'ی').replace(/ى/g,'ی').replace(/ك/g,'ک').replace(/[ًٌٍَُِّْـ]/g,'');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB,VER);r.onupgradeneeded=()=>{const d=r.result;let s=d.objectStoreNames.contains(STORE)?r.transaction.objectStore(STORE):d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});if(!s.indexNames.contains('name'))s.createIndex('name','name',{unique:false});if(!s.indexNames.contains('father'))s.createIndex('father','father',{unique:false});if(!s.indexNames.contains('grandfather'))s.createIndex('grandfather','grandfather',{unique:false});if(!s.indexNames.contains('family'))s.createIndex('family','family',{unique:false});if(!s.indexNames.contains('year'))s.createIndex('year','year',{unique:false});};r.onsuccess=()=>{db=r.result;resolve(db)};r.onerror=()=>reject(r.error)})}
+function countDB(){return new Promise((resolve,reject)=>{const r=db.transaction(STORE).objectStore(STORE).count();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+function putChunk(rows){return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite'),s=tx.objectStore(STORE);for(const r of rows){s.put({code:String(r[0]??''),family:String(r[1]??''),pid:String(r[2]??''),name:norm(r[3]),father:norm(r[4]),grandfather:norm(r[5]),year:year(r[7]),raw:[r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9]]})}tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+function year(x){const m=String(x??'').match(/(18|19|20)\d{2}/);return m?Number(m[0]):null}
+function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=()=>{s.remove();resolve()};s.onerror=()=>reject(new Error('نەتوانرا '+src+' بخوێنرێتەوە'));document.head.appendChild(s)})}
+async function importAll(){busy=true;$('loadStatus').textContent='داتا یەکەمجار بۆ مۆبایل ئامادە دەکرێت...';const files=Array.from({length:40},(_,i)=>`data_${String(i+1).padStart(2,'0')}.js`);
+// Clear old data only when importing a fresh package.
+await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+for(let i=0;i<files.length;i++){window.PERSON_DATA_CHUNK=null;await loadScript(files[i]);const rows=window.PERSON_DATA_CHUNK||[];await putChunk(rows);window.PERSON_DATA_CHUNK=null;$('progressBar').style.width=((i+1)/files.length*100)+'%';$('loadStatus').textContent=`داتا بار دەکرێت... ${i+1}/${files.length}`;$('loadDetail').textContent=`${Math.min((i+1)*26215,1048575).toLocaleString()} تۆمار`;}
+localStorage.setItem('personDBReady','1');busy=false}
+function rangePrefix(q){return IDBKeyRange.bound(q,q+'\uffff')}
+function cursorIndex(indexName,q,limit=500){return new Promise((resolve,reject)=>{const out=[],req=db.transaction(STORE,'readonly').objectStore(STORE).index(indexName).openCursor(rangePrefix(q));req.onsuccess=()=>{const c=req.result;if(!c||out.length>=limit)return resolve(out);out.push(c.value);c.continue()};req.onerror=()=>reject(req.error)})}
+async function search(){const n=norm($('name').value),f=norm($('father').value),g=norm($('grandfather').value),a=$('age').value.trim();if(!n&&!f&&!g&&!a){matches=[];render();$('searchState').textContent='بە نووسینی هەر پیتێک، گەڕان خۆکار دەکرێت.';return}
+$('searchState').textContent='گەڕان...';const candidates=[];if(n)candidates.push(['name',n]);if(f)candidates.push(['father',f]);if(g)candidates.push(['grandfather',g]);if(a){const yy=(/^\d{4}$/.test(a)?Number(a):new Date().getFullYear()-Number(a));if(Number.isFinite(yy))candidates.push(['year',yy])}
+candidates.sort((x,y)=>String(y[1]).length-String(x[1]).length);let arr=[];
+if(candidates.length){const [idx,q]=candidates[0];if(idx==='year'){arr=await yearQuery(q)}else arr=await cursorIndex(idx,q,1000)}
+const filtered=arr.filter(x=>(!n||x.name.includes(n))&&(!f||x.father.includes(f))&&(!g||x.grandfather.includes(g))&&(!a||x.year===(/^\d{4}$/.test(a)?Number(a):new Date().getFullYear()-Number(a))));matches=filtered;page=1;render();$('searchState').textContent=`${matches.length.toLocaleString()} ئەنجام`}
+function yearQuery(y){return new Promise((resolve,reject)=>{const out=[],r=db.transaction(STORE,'readonly').objectStore(STORE).index('year').openCursor(IDBKeyRange.only(y));r.onsuccess=()=>{const c=r.result;if(!c||out.length>=1000)return resolve(out);out.push(c.value);c.continue()};r.onerror=()=>reject(r.error)})}
+function render(){const box=$('results');box.innerHTML='';$('count').textContent=matches.length?`${matches.length.toLocaleString()} ئەنجام`:'هیچ ئەنجامێک نییە';if(!matches.length){if($('name').value||$('father').value||$('grandfather').value||$('age').value)box.innerHTML='<div class="empty">هیچ کەسێک نەدۆزرایەوە.</div>';$('pager').innerHTML='';return}const pages=Math.ceil(matches.length/PAGE),start=(page-1)*PAGE;for(const x of matches.slice(start,start+PAGE)){const b=x.year,a=b?new Date().getFullYear()-b:null,el=document.createElement('button');el.className='person';el.innerHTML=`<div class="avatar">${esc((x.raw[3]||'?').slice(0,1))}</div><div class="person-main"><div class="person-name">${esc([x.raw[3],x.raw[4],x.raw[5]].filter(Boolean).join(' ')||'بێ ناو')}</div><div class="person-meta">خێزان: ${esc(x.family)}${b?' · '+b:''}${a!==null?' · تەمەن '+a:''}</div></div><div class="chev">‹</div>`;el.onclick=()=>openPerson(x);box.appendChild(el)}const p=$('pager');p.innerHTML='';if(pages>1){for(let i=Math.max(1,page-2);i<=Math.min(pages,page+2);i++){const b=document.createElement('button');b.textContent=i;b.className=i===page?'active':'';b.onclick=()=>{page=i;render()};p.appendChild(b)}}}
+function openPerson(x){const req=db.transaction(STORE,'readonly').objectStore(STORE).index('family').openCursor(IDBKeyRange.only(x.family)),fam=[];req.onsuccess=()=>{const c=req.result;if(c){fam.push(c.value);c.continue()}else showFamily(fam)}}
+function showFamily(fam){const x=fam[0]||{};$('modalContent').innerHTML=`<div class="detail-head"><h2>${esc([x.raw?.[3],x.raw?.[4],x.raw?.[5]].filter(Boolean).join(' ')||'بێ ناو')}</h2><p>ژمارەی خێزان: ${esc(x.family)}</p></div><div class="detail-grid"><div class="detail-item"><small>ناو</small><b>${esc(x.raw?.[3])}</b></div><div class="detail-item"><small>باوک</small><b>${esc(x.raw?.[4])}</b></div><div class="detail-item"><small>باپیر</small><b>${esc(x.raw?.[5])}</b></div><div class="detail-item"><small>ساڵی لەدایکبوون</small><b>${x.year||'—'}</b></div></div><h3 class="family-title">هەموو ئەندامانی هەمان خێزان (${fam.length})</h3><div class="family-list">${fam.map(y=>`<div class="family-member"><b>${esc([y.raw[3],y.raw[4],y.raw[5]].filter(Boolean).join(' ')||'بێ ناو')}</b><span>${esc(y.raw[3])} · باوک: ${esc(y.raw[4])} · باپیر: ${esc(y.raw[5])}${y.year?' · تەمەن: '+(new Date().getFullYear()-y.year):''}</span></div>`).join('')}</div>`;$('modal').classList.remove('hidden');$('modal').setAttribute('aria-hidden','false')}
+function close(){ $('modal').classList.add('hidden');$('modal').setAttribute('aria-hidden','true') }
+async function boot(){try{await openDB();const n=await countDB();if(n<1000000||localStorage.getItem('personDBReady')!=='1')await importAll();else{$('progressBar').style.width='100%';$('loadStatus').textContent='داتا ئامادەیە';$('loadDetail').textContent=`${n.toLocaleString()} تۆمار لە IndexedDB`;}$('splash').classList.add('hidden');$('app').classList.remove('hidden');}catch(e){$('loadStatus').textContent='هەڵە ڕوویدا';$('loadDetail').textContent=e.message;console.error(e)}}
+['name','father','grandfather','age'].forEach(id=>$(id).addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(search,180)}));$('closeModal').onclick=close;$('modalBackdrop').onclick=close;document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});$('resetDb').onclick=async()=>{if(busy)return;if(confirm('داتای ناوخۆ بسڕێتەوە و دووبارە import بکرێت؟')){indexedDB.deleteDatabase(DB);localStorage.removeItem('personDBReady');location.reload()}};boot();
 })();
