@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ku" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6bcb">
+  <title>گەڕانی کەسەکان</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="splash" class="splash">
+    <div class="splash-card">
+      <img src="logo.svg" class="logo" alt="Logo">
+      <h1> فۆڕمی خۆراک - سلێمانی</h1>
+      <h2>HACKED BY S@HAND KURDISH</h2>
+      <p id="loadStatus">داتا بار دەکرێت...</p>
+      <div class="progress"><div id="progressBar"></div></div>
+    </div>
+  </div>
+
+  <main id="app" class="app hidden">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow"> DATABASE BY SAHAND KURDISH</div>
+        <h1> فۆڕمی خۆراک - سلێمانی</h1>
+      </div>
+      <div></div>
+    </header>
+
+    <section class="search-card">
+      <div class="search-grid">
+        <label>ناو
+          <input id="name" autocomplete="off" placeholder="ناوی کەس...">
+        </label>
+        <label>ناوی باوک
+          <input id="father" autocomplete="off" placeholder="ناوی باوک...">
+        </label>
+        <label>ناوی باپیر
+          <input id="grandfather" autocomplete="off" placeholder="ناوی باپیر...">
+        </label>
+        <label>تەمەن / ساڵی لەدایکبوون
+          <input id="age" inputmode="numeric" autocomplete="off" placeholder="وەک 30 یان 1996">
+        </label>
+      </div>
+      <div class="actions">
+        <button id="searchBtn" class="primary" type="button">گەڕان</button>
+        <button id="clearBtn" class="secondary" type="button">پاککردنەوە</button>
+      </div>
+      <div id="hint" class="hint">دەتوانیت یەک خانە یان چەند خانە پڕ بکەیت.</div>
+    </section>
+
+    <section class="results-head">
+      <div>
+        <h2>ئەنجامەکان</h2>
+        <span id="count">هیچ گەڕانێک نەکراوە</span>
+      </div>
+    </section>
+
+    <section id="results" class="results"></section>
+    <div id="pager" class="pager"></div>
+  </main>
+
+  <div id="modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <section class="sheet">
+      <button id="closeModal" class="close" type="button">×</button>
+      <div id="modalContent"></div>
+    </section>
+  </div>
+
+  <script src="persons_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
